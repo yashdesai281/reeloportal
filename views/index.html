@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,45 +20,150 @@
             <label for="file" class="form-label">Upload CSV File</label>
             <input type="file" name="file" id="file" class="form-control" accept=".csv" required>
           </div>
-          <button type="submit" class="btn btn-success w-100">Upload and Process</button>
+          <button type="submit" class="btn btn-success w-100">Upload File</button>
         </form>
+
+        <div id="processSection" class="mt-4 d-none">
+          <div class="alert alert-success">
+            <h4>File uploaded successfully!</h4>
+            <p>Now let's map the columns from your CSV file.</p>
+          </div>
+          
+          <form id="mappingForm">
+            <div class="mb-3">
+              <label for="mobileCol" class="form-label">Enter the column number containing 'mobile'</label>
+              <input type="number" id="mobileCol" class="form-control" min="1" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="billNumberCol" class="form-label">Enter the column number containing 'bill_number'</label>
+              <input type="number" id="billNumberCol" class="form-control" min="1" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="billAmountCol" class="form-label">Enter the column number containing 'bill_amount'</label>
+              <input type="number" id="billAmountCol" class="form-control" min="1" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="orderTimeCol" class="form-label">Enter the column number containing 'order_time'</label>
+              <input type="number" id="orderTimeCol" class="form-control" min="1" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100">Process File</button>
+          </form>
+        </div>
+
+        <div id="resultSection" class="mt-4 d-none">
+          <div class="alert alert-success">
+            <h4>Processing complete!</h4>
+            <p>Your file has been processed successfully.</p>
+          </div>
+          <a id="downloadLink" class="btn btn-primary w-100">Download Processed File</a>
+        </div>
+
+        <div id="loadingSection" class="mt-4 d-none text-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Processing your file, please wait...</p>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
+    let uploadedFilePath = '';
+
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const formData = new FormData();
-      formData.append('file', document.getElementById('file').files[0]);
+      
+      const fileInput = document.getElementById('file');
+      if (!fileInput.files[0]) {
+        alert("Please select a CSV file");
+        return;
+      }
 
-      // Step 1: Upload file
-      const uploadResponse = await fetch('/upload', { method: 'POST', body: formData });
-      const uploadResult = await uploadResponse.json();
+      try {
+        // Show loading indicator
+        document.getElementById('loadingSection').classList.remove('d-none');
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
 
-      if (uploadResult.success) {
-        // Step 2: Mobile Column Mapping
-        const mobileCol = prompt("Enter the column number containing 'mobile':");
-        const billNumberCol = prompt("Enter the column number containing 'bill_number':");
-        const billAmountCol = prompt("Enter the column number containing 'bill_amount':");
-        const orderTimeCol = prompt("Enter the column number containing 'order_time':");
+        // Step 1: Upload file
+        const uploadResponse = await fetch('/upload', { 
+          method: 'POST', 
+          body: formData 
+        });
+        
+        const uploadResult = await uploadResponse.json();
 
+        if (uploadResult.success) {
+          uploadedFilePath = uploadResult.filePath;
+          
+          // Hide upload form and show mapping form
+          document.getElementById('uploadForm').classList.add('d-none');
+          document.getElementById('processSection').classList.remove('d-none');
+          document.getElementById('loadingSection').classList.add('d-none');
+        } else {
+          alert("Error uploading file: " + (uploadResult.message || "Unknown error"));
+          document.getElementById('loadingSection').classList.add('d-none');
+        }
+      } catch (error) {
+        alert("An error occurred: " + error.message);
+        document.getElementById('loadingSection').classList.add('d-none');
+      }
+    });
+
+    document.getElementById('mappingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const mobileCol = document.getElementById('mobileCol').value;
+      const billNumberCol = document.getElementById('billNumberCol').value;
+      const billAmountCol = document.getElementById('billAmountCol').value;
+      const orderTimeCol = document.getElementById('orderTimeCol').value;
+      
+      // Validate inputs
+      if (!mobileCol || !billNumberCol || !billAmountCol || !orderTimeCol) {
+        alert("Please fill in all column numbers");
+        return;
+      }
+
+      try {
+        // Show loading indicator
+        document.getElementById('loadingSection').classList.remove('d-none');
+        document.getElementById('processSection').classList.add('d-none');
+        
         // Send mapping data to backend
         const processResponse = await fetch('/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobileCol, billNumberCol, billAmountCol, orderTimeCol, filePath: uploadResult.filePath })
+          body: JSON.stringify({ 
+            mobileCol, 
+            billNumberCol, 
+            billAmountCol, 
+            orderTimeCol, 
+            filePath: uploadedFilePath 
+          })
         });
 
         const processResult = await processResponse.json();
+        
+        // Hide loading indicator
+        document.getElementById('loadingSection').classList.add('d-none');
+        
         if (processResult.success) {
-          // Step 7: Download processed file
-          window.location.href = processResult.downloadUrl;
+          // Show download section
+          document.getElementById('resultSection').classList.remove('d-none');
+          document.getElementById('downloadLink').href = processResult.downloadUrl;
+          document.getElementById('downloadLink').textContent = "Download Processed File";
         } else {
-          alert("Error processing file.");
+          alert("Error processing file: " + (processResult.message || "Unknown error"));
         }
-      } else {
-        alert("Error uploading file.");
+      } catch (error) {
+        document.getElementById('loadingSection').classList.add('d-none');
+        alert("An error occurred: " + error.message);
       }
     });
   </script>

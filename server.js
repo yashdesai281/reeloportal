@@ -30,23 +30,40 @@ app.post('/process', express.json(), (req, res) => {
   const { mobileCol, billNumberCol, billAmountCol, orderTimeCol } = req.body;
   const inputFilePath = req.body.filePath;
 
+  // Create processed directory if it doesn't exist
+  const processedDir = path.join(__dirname, 'processed');
+  if (!fs.existsSync(processedDir)) {
+    fs.mkdirSync(processedDir, { recursive: true });
+  }
+
   const results = [];
-  const processedFilePath = path.join(__dirname, 'processed', 'processed_file.csv');
+  const processedFilePath = path.join(processedDir, 'processed_file.csv');
+
+  // Add headers as the first row
+  results.push(['mobile', 'bill_number', 'bill_amount', 'order_time', 'txn_type']);
 
   fs.createReadStream(inputFilePath)
     .pipe(csv())
     .on('data', (row) => {
-      const mobile = row[Object.keys(row)[mobileCol - 1]];
-      const billNumber = row[Object.keys(row)[billNumberCol - 1]];
-      const billAmount = row[Object.keys(row)[billAmountCol - 1]];
-      const orderTime = row[Object.keys(row)[orderTimeCol - 1]];
-      results.push([mobile, billNumber, billAmount, orderTime, 'Purchased']);
+      try {
+        const mobile = row[Object.keys(row)[mobileCol - 1]] || '';
+        const billNumber = row[Object.keys(row)[billNumberCol - 1]] || '';
+        const billAmount = row[Object.keys(row)[billAmountCol - 1]] || '';
+        const orderTime = row[Object.keys(row)[orderTimeCol - 1]] || '';
+        results.push([mobile, billNumber, billAmount, orderTime, 'Purchased']);
+      } catch (err) {
+        console.error('Error processing row:', err);
+      }
     })
     .on('end', () => {
       const csvData = results.map(row => row.join(',')).join('\n');
       fs.writeFileSync(processedFilePath, csvData);
 
       res.json({ success: true, downloadUrl: '/download/processed_file.csv' });
+    })
+    .on('error', (error) => {
+      console.error('Error processing CSV:', error);
+      res.status(500).json({ success: false, message: 'Error processing file' });
     });
 });
 
@@ -56,8 +73,21 @@ app.get('/download/:filename', (req, res) => {
   res.download(filePath);
 });
 
+// Create necessary directories
+const processedDir = path.join(__dirname, 'processed');
+const uploadsDir = path.join(__dirname, 'uploads');
+
+// Create directories if they don't exist
+if (!fs.existsSync(processedDir)) {
+  fs.mkdirSync(processedDir, { recursive: true });
+}
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Start the server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
 });
