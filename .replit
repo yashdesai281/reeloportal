@@ -15,3 +15,18 @@ language = "nodejs"
 run = ["node", "index.js"]
 deploymentTarget = "cloudrun"
 ignorePorts = false
+
+[workflows]
+runButton = "Start Server"
+
+[[workflows.workflow]]
+name = "Start Server"
+author = 40356108
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node server.js"
+
+[[ports]]
+localPort = 3000
+externalPort = 80

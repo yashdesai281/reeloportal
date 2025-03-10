@@ -1,0 +1,5 @@
+bill_number,bill_amount,order_time,points_redeemed,mobile,txn_type,points_earned
+A-1234,550,2022-01-01 11:25:15,0,9999999999,purchase,55
+A-4321,0,2022-01-01 18:30:00,100,8888888888,redemption,0
+A-1111,550,2022-01-01 14:00:05,0,7777777777,purchase,55
+A-1111,0,2022-01-01 14:00:05,150,7777777777,redemption,0
