@@ -40,7 +40,7 @@ app.post('/process', express.json(), (req, res) => {
   const processedFilePath = path.join(processedDir, 'processed_file.csv');
 
   // Add headers as the first row - with correct column order
-  results.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'points_earned', 'points_redeemed', 'order_time']);
+  results.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'order_time', 'points_earned', 'points_redeemed']);
 
   fs.createReadStream(inputFilePath)
     .pipe(csv())
@@ -50,15 +50,28 @@ app.post('/process', express.json(), (req, res) => {
         const billNumber = row[Object.keys(row)[billNumberCol - 1]] || '';
         const billAmount = row[Object.keys(row)[billAmountCol - 1]] || '';
         const orderTime = row[Object.keys(row)[orderTimeCol - 1]] || '';
-        // Include all columns in the correct order, with empty values for points
+        
+        // Extract points_earned and points_redeemed if they exist in the file
+        let pointsEarned = '';
+        let pointsRedeemed = '';
+        
+        if (req.body.pointsEarnedCol && row[Object.keys(row)[req.body.pointsEarnedCol - 1]]) {
+          pointsEarned = row[Object.keys(row)[req.body.pointsEarnedCol - 1]];
+        }
+        
+        if (req.body.pointsRedeemedCol && row[Object.keys(row)[req.body.pointsRedeemedCol - 1]]) {
+          pointsRedeemed = row[Object.keys(row)[req.body.pointsRedeemedCol - 1]];
+        }
+        
+        // Include all columns in the correct order
         results.push([
-          mobile,           // mobile
-          'Purchased',      // txn_type (in 2nd position)
-          billNumber,       // bill_number
-          billAmount,       // bill_amount
-          '',               // points_earned (empty)
-          '',               // points_redeemed (empty)
-          orderTime         // order_time
+          mobile,           // mobile (1)
+          'Purchased',      // txn_type (2)
+          billNumber,       // bill_number (3)
+          billAmount,       // bill_amount (4)
+          orderTime,        // order_time (5)
+          pointsEarned,     // points_earned (6)
+          pointsRedeemed    // points_redeemed (7)
         ]);
       } catch (err) {
         console.error('Error processing row:', err);

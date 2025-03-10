@@ -33,9 +33,9 @@
               <li>txn_type (will be set to "Purchased")</li>
               <li>bill_number</li>
               <li>bill_amount</li>
-              <li>points_earned (will be empty)</li>
-              <li>points_redeemed (will be empty)</li>
               <li>order_time</li>
+              <li>points_earned</li>
+              <li>points_redeemed</li>
             </ol>
           </div>
           
@@ -58,6 +58,16 @@
             <div class="mb-3">
               <label for="orderTimeCol" class="form-label">Enter the column number containing 'order_time'</label>
               <input type="number" id="orderTimeCol" class="form-control" min="1" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="pointsEarnedCol" class="form-label">Enter the column number containing 'points_earned' (optional)</label>
+              <input type="number" id="pointsEarnedCol" class="form-control" min="1">
+            </div>
+            
+            <div class="mb-3">
+              <label for="pointsRedeemedCol" class="form-label">Enter the column number containing 'points_redeemed' (optional)</label>
+              <input type="number" id="pointsRedeemedCol" class="form-control" min="1">
             </div>
             
             <button type="submit" class="btn btn-primary w-100">Process File</button>
@@ -133,10 +143,12 @@
       const billNumberCol = document.getElementById('billNumberCol').value;
       const billAmountCol = document.getElementById('billAmountCol').value;
       const orderTimeCol = document.getElementById('orderTimeCol').value;
+      const pointsEarnedCol = document.getElementById('pointsEarnedCol').value;
+      const pointsRedeemedCol = document.getElementById('pointsRedeemedCol').value;
       
-      // Validate inputs
+      // Validate required inputs
       if (!mobileCol || !billNumberCol || !billAmountCol || !orderTimeCol) {
-        alert("Please fill in all column numbers");
+        alert("Please fill in all required column numbers");
         return;
       }
 
@@ -154,6 +166,8 @@
             billNumberCol, 
             billAmountCol, 
             orderTimeCol, 
+            pointsEarnedCol, 
+            pointsRedeemedCol,
             filePath: uploadedFilePath 
           })
         });
