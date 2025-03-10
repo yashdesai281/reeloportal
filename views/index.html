@@ -27,6 +27,16 @@
           <div class="alert alert-success">
             <h4>File uploaded successfully!</h4>
             <p>Now let's map the columns from your CSV file.</p>
+            <p><strong>Note:</strong> The processed file will have the following columns in this order:</p>
+            <ol>
+              <li>mobile</li>
+              <li>txn_type (will be set to "Purchased")</li>
+              <li>bill_number</li>
+              <li>bill_amount</li>
+              <li>points_earned (will be empty)</li>
+              <li>points_redeemed (will be empty)</li>
+              <li>order_time</li>
+            </ol>
           </div>
           
           <form id="mappingForm">

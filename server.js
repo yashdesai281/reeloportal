@@ -39,8 +39,8 @@ app.post('/process', express.json(), (req, res) => {
   const results = [];
   const processedFilePath = path.join(processedDir, 'processed_file.csv');
 
-  // Add headers as the first row
-  results.push(['mobile', 'bill_number', 'bill_amount', 'order_time', 'txn_type']);
+  // Add headers as the first row - with correct column order
+  results.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'points_earned', 'points_redeemed', 'order_time']);
 
   fs.createReadStream(inputFilePath)
     .pipe(csv())
@@ -50,7 +50,16 @@ app.post('/process', express.json(), (req, res) => {
         const billNumber = row[Object.keys(row)[billNumberCol - 1]] || '';
         const billAmount = row[Object.keys(row)[billAmountCol - 1]] || '';
         const orderTime = row[Object.keys(row)[orderTimeCol - 1]] || '';
-        results.push([mobile, billNumber, billAmount, orderTime, 'Purchased']);
+        // Include all columns in the correct order, with empty values for points
+        results.push([
+          mobile,           // mobile
+          'Purchased',      // txn_type (in 2nd position)
+          billNumber,       // bill_number
+          billAmount,       // bill_amount
+          '',               // points_earned (empty)
+          '',               // points_redeemed (empty)
+          orderTime         // order_time
+        ]);
       } catch (err) {
         console.error('Error processing row:', err);
       }
