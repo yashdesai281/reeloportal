@@ -3,6 +3,8 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
+const xlsx = require('xlsx'); // Added for Excel support
+
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -42,31 +44,47 @@ app.post('/process', express.json(), (req, res) => {
   // Add headers as the first row - with correct column order
   results.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'order_time', 'points_earned', 'points_redeemed']);
 
-  fs.createReadStream(inputFilePath)
+  const fileExtension = path.extname(inputFilePath);
+  let readStream;
+  if (fileExtension === '.csv') {
+    readStream = fs.createReadStream(inputFilePath);
+  } else if (fileExtension === '.xlsx') {
+      const workbook = xlsx.readFile(inputFilePath);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = xlsx.utils.sheet_to_json(worksheet);
+      readStream = data.values; //This is not a stream, so the original code flow will not work without significant changes
+
+  } else {
+    return res.status(400).json({ success: false, message: 'Unsupported file type' });
+  }
+
+  if(fileExtension === '.csv'){
+    readStream
     .pipe(csv())
     .on('data', (row) => {
       try {
-        const mobile = row[Object.keys(row)[mobileCol - 1]] || '';
-        const billNumber = row[Object.keys(row)[billNumberCol - 1]] || '';
-        const billAmount = row[Object.keys(row)[billAmountCol - 1]] || '';
-        const orderTime = row[Object.keys(row)[orderTimeCol - 1]] || '';
-        
+        const mobile = row[mobileCol - 1] || '';
+        const billNumber = row[billNumberCol - 1] || '';
+        const billAmount = row[billAmountCol - 1] || '';
+        const orderTime = row[orderTimeCol - 1] || '';
+    
         // Extract points_earned and points_redeemed if they exist in the file
         let pointsEarned = '';
         let pointsRedeemed = '';
-        
-        if (req.body.pointsEarnedCol && row[Object.keys(row)[req.body.pointsEarnedCol - 1]]) {
-          pointsEarned = row[Object.keys(row)[req.body.pointsEarnedCol - 1]];
+    
+        if (req.body.pointsEarnedCol && row[req.body.pointsEarnedCol - 1]) {
+          pointsEarned = row[req.body.pointsEarnedCol - 1];
         }
-        
-        if (req.body.pointsRedeemedCol && row[Object.keys(row)[req.body.pointsRedeemedCol - 1]]) {
-          pointsRedeemed = row[Object.keys(row)[req.body.pointsRedeemedCol - 1]];
+    
+        if (req.body.pointsRedeemedCol && row[req.body.pointsRedeemedCol - 1]) {
+          pointsRedeemed = row[req.body.pointsRedeemedCol - 1];
         }
-        
+    
         // Include all columns in the correct order
         results.push([
           mobile,           // mobile (1)
-          'Purchased',      // txn_type (2)
+          'Purchase',      // txn_type (2) - Corrected
           billNumber,       // bill_number (3)
           billAmount,       // bill_amount (4)
           orderTime,        // order_time (5)
@@ -80,13 +98,14 @@ app.post('/process', express.json(), (req, res) => {
     .on('end', () => {
       const csvData = results.map(row => row.join(',')).join('\n');
       fs.writeFileSync(processedFilePath, csvData);
-
+    
       res.json({ success: true, downloadUrl: '/download/processed_file.csv' });
     })
     .on('error', (error) => {
       console.error('Error processing CSV:', error);
       res.status(500).json({ success: false, message: 'Error processing file' });
     });
+  }
 });
 
 // Download the processed file

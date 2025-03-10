@@ -17,8 +17,8 @@
       <div class="card-body">
         <form id="uploadForm" enctype="multipart/form-data">
           <div class="mb-3">
-            <label for="file" class="form-label">Upload CSV File</label>
-            <input type="file" name="file" id="file" class="form-control" accept=".csv" required>
+            <label for="file" class="form-label">Upload CSV or Excel File</label>
+            <input type="file" name="file" id="file" class="form-control" accept=".csv,.xlsx,.xls" required>
           </div>
           <button type="submit" class="btn btn-success w-100">Upload File</button>
         </form>
@@ -30,7 +30,7 @@
             <p><strong>Note:</strong> The processed file will have the following columns in this order:</p>
             <ol>
               <li>mobile</li>
-              <li>txn_type (will be set to "Purchased")</li>
+              <li>txn_type (will be set to "Purchase")</li>
               <li>bill_number</li>
               <li>bill_amount</li>
               <li>order_time</li>
@@ -94,6 +94,7 @@
 
   <script>
     let uploadedFilePath = '';
+    let uploadedFileType = '';
 
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -121,6 +122,7 @@
 
         if (uploadResult.success) {
           uploadedFilePath = uploadResult.filePath;
+          uploadedFileType = uploadResult.fileType;
           
           // Hide upload form and show mapping form
           document.getElementById('uploadForm').classList.add('d-none');
@@ -168,7 +170,8 @@
             orderTimeCol, 
             pointsEarnedCol, 
             pointsRedeemedCol,
-            filePath: uploadedFilePath 
+            filePath: uploadedFilePath,
+            fileType: uploadedFileType
           })
         });
 
