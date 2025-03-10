@@ -1,5 +1,5 @@
-mobile,bill_number,bill_amount,order_time,txn_type
-9999999999,A-1234,550,2022-01-01 11:25:15,Purchased
-8888888888,A-4321,0,2022-01-01 18:30:00,Purchased
-7777777777,A-1111,550,2022-01-01 14:00:05,Purchased
-7777777777,A-1111,0,2022-01-01 14:00:05,Purchased
+mobile,txn_type,bill_number,bill_amount,points_earned,points_redeemed,order_time
+9999999999,Purchased,A-1234,550,,,2022-01-01 11:25:15
+8888888888,Purchased,A-4321,0,,,2022-01-01 18:30:00
+7777777777,Purchased,A-1111,550,,,2022-01-01 14:00:05
+7777777777,Purchased,A-1111,0,,,2022-01-01 14:00:05
