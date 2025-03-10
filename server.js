@@ -24,13 +24,22 @@ app.post('/upload', upload.single('file'), (req, res) => {
   }
 
   const filePath = req.file.path;
-  res.json({ success: true, filePath });
+  // Determine file type from original filename
+  const originalExt = path.extname(req.file.originalname).toLowerCase();
+  const fileType = (originalExt === '.csv') ? 'csv' : 
+                  ((originalExt === '.xlsx' || originalExt === '.xls') ? 'excel' : 'unknown');
+  
+  res.json({ 
+    success: true, 
+    filePath, 
+    fileType 
+  });
 });
 
 // Process the uploaded file
 app.post('/process', express.json(), (req, res) => {
-  const { mobileCol, billNumberCol, billAmountCol, orderTimeCol } = req.body;
-  const inputFilePath = req.body.filePath;
+  const { mobileCol, billNumberCol, billAmountCol, orderTimeCol, pointsEarnedCol, pointsRedeemedCol, filePath, fileType } = req.body;
+  const inputFilePath = filePath;
 
   // Create processed directory if it doesn't exist
   const processedDir = path.join(__dirname, 'processed');
@@ -44,67 +53,125 @@ app.post('/process', express.json(), (req, res) => {
   // Add headers as the first row - with correct column order
   results.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'order_time', 'points_earned', 'points_redeemed']);
 
-  const fileExtension = path.extname(inputFilePath);
-  let readStream;
-  if (fileExtension === '.csv') {
-    readStream = fs.createReadStream(inputFilePath);
-  } else if (fileExtension === '.xlsx') {
+  try {
+    if (fileType === 'csv') {
+      // Process CSV file
+      fs.createReadStream(inputFilePath)
+        .pipe(csv())
+        .on('data', (row) => {
+          processRow(row, results);
+        })
+        .on('end', () => {
+          writeResultsAndRespond();
+        })
+        .on('error', (error) => {
+          console.error('Error processing CSV:', error);
+          res.status(500).json({ success: false, message: 'Error processing CSV file' });
+        });
+    } else if (fileType === 'excel') {
+      // Process Excel file
       const workbook = xlsx.readFile(inputFilePath);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json(worksheet);
-      readStream = data.values; //This is not a stream, so the original code flow will not work without significant changes
-
-  } else {
-    return res.status(400).json({ success: false, message: 'Unsupported file type' });
+      const data = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+      
+      if (data.length <= 1) {
+        return res.status(400).json({ success: false, message: 'Excel file is empty or has only headers' });
+      }
+      
+      // Skip header row if exists and process each data row
+      const startRow = data[0].some(header => header && header.trim() !== '') ? 1 : 0;
+      
+      for (let i = startRow; i < data.length; i++) {
+        const rowArray = data[i];
+        if (rowArray.length > 0) {
+          // Convert array row to object with indexed values to match CSV row format
+          const rowObj = {};
+          rowArray.forEach((val, index) => {
+            rowObj[index] = val.toString();
+          });
+          
+          processRow(rowObj, results);
+        }
+      }
+      
+      writeResultsAndRespond();
+    } else {
+      return res.status(400).json({ success: false, message: 'Unsupported file type' });
+    }
+  } catch (error) {
+    console.error('Error processing file:', error);
+    res.status(500).json({ success: false, message: `Error processing file: ${error.message}` });
   }
 
-  if(fileExtension === '.csv'){
-    readStream
-    .pipe(csv())
-    .on('data', (row) => {
-      try {
-        const mobile = row[mobileCol - 1] || '';
-        const billNumber = row[billNumberCol - 1] || '';
-        const billAmount = row[billAmountCol - 1] || '';
-        const orderTime = row[orderTimeCol - 1] || '';
-    
-        // Extract points_earned and points_redeemed if they exist in the file
-        let pointsEarned = '';
-        let pointsRedeemed = '';
-    
-        if (req.body.pointsEarnedCol && row[req.body.pointsEarnedCol - 1]) {
-          pointsEarned = row[req.body.pointsEarnedCol - 1];
+  // Function to process a row of data
+  function processRow(row, results) {
+    try {
+      // Get values using column numbers (supporting both array and object format)
+      const getColumnValue = (row, colNum) => {
+        if (!colNum) return '';
+        
+        // Handle both object with numeric keys and arrays
+        if (Array.isArray(row)) {
+          return colNum <= row.length ? (row[colNum - 1] || '') : '';
+        } else if (typeof row === 'object') {
+          // Try to get value from object using column number as key or index
+          const keys = Object.keys(row);
+          const numColIndex = colNum - 1;
+          
+          // First try direct access using column number
+          if (row[numColIndex] !== undefined) {
+            return row[numColIndex].toString();
+          }
+          
+          // Then try using the corresponding key at that index
+          if (keys.length > numColIndex) {
+            return row[keys[numColIndex]].toString();
+          }
+          
+          return '';
         }
-    
-        if (req.body.pointsRedeemedCol && row[req.body.pointsRedeemedCol - 1]) {
-          pointsRedeemed = row[req.body.pointsRedeemedCol - 1];
-        }
-    
-        // Include all columns in the correct order
-        results.push([
-          mobile,           // mobile (1)
-          'Purchase',      // txn_type (2) - Corrected
-          billNumber,       // bill_number (3)
-          billAmount,       // bill_amount (4)
-          orderTime,        // order_time (5)
-          pointsEarned,     // points_earned (6)
-          pointsRedeemed    // points_redeemed (7)
-        ]);
-      } catch (err) {
-        console.error('Error processing row:', err);
+        return '';
+      };
+
+      const mobile = getColumnValue(row, parseInt(mobileCol)) || '';
+      const billNumber = getColumnValue(row, parseInt(billNumberCol)) || '';
+      const billAmount = getColumnValue(row, parseInt(billAmountCol)) || '';
+      const orderTime = getColumnValue(row, parseInt(orderTimeCol)) || '';
+      
+      // Extract points values if column numbers were provided
+      let pointsEarned = '';
+      let pointsRedeemed = '';
+      
+      if (pointsEarnedCol) {
+        pointsEarned = getColumnValue(row, parseInt(pointsEarnedCol)) || '';
       }
-    })
-    .on('end', () => {
-      const csvData = results.map(row => row.join(',')).join('\n');
-      fs.writeFileSync(processedFilePath, csvData);
+      
+      if (pointsRedeemedCol) {
+        pointsRedeemed = getColumnValue(row, parseInt(pointsRedeemedCol)) || '';
+      }
+      
+      // Include all columns in the correct order with txn_type as "Purchase"
+      results.push([
+        mobile,           // mobile (1)
+        'Purchase',       // txn_type (2)
+        billNumber,       // bill_number (3)
+        billAmount,       // bill_amount (4)
+        orderTime,        // order_time (5)
+        pointsEarned,     // points_earned (6)
+        pointsRedeemed    // points_redeemed (7)
+      ]);
+    } catch (err) {
+      console.error('Error processing row:', err);
+    }
+  }
+
+  // Function to write results and send response
+  function writeResultsAndRespond() {
+    const csvData = results.map(row => row.join(',')).join('\n');
+    fs.writeFileSync(processedFilePath, csvData);
     
-      res.json({ success: true, downloadUrl: '/download/processed_file.csv' });
-    })
-    .on('error', (error) => {
-      console.error('Error processing CSV:', error);
-      res.status(500).json({ success: false, message: 'Error processing file' });
-    });
+    res.json({ success: true, downloadUrl: '/download/processed_file.csv' });
   }
 });
 
