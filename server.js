@@ -56,12 +56,30 @@ app.post('/process', express.json(), (req, res) => {
   try {
     if (fileType === 'csv') {
       // Process CSV file
+      const csvRows = [];
       fs.createReadStream(inputFilePath)
         .pipe(csv())
         .on('data', (row) => {
-          processRow(row, results);
+          csvRows.push(row);
         })
         .on('end', () => {
+          if (csvRows.length === 0) {
+            return res.status(400).json({ success: false, message: 'CSV file is empty' });
+          }
+          
+          // Process all rows after the header
+          csvRows.forEach(row => {
+            processRow(row, results);
+          });
+          
+          // Ensure first and second rows are not empty
+          if (results.length <= 1) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'Not enough data rows after processing. File must contain a header row and at least one data row.' 
+            });
+          }
+          
           writeResultsAndRespond();
         })
         .on('error', (error) => {
@@ -79,20 +97,26 @@ app.post('/process', express.json(), (req, res) => {
         return res.status(400).json({ success: false, message: 'Excel file is empty or has only headers' });
       }
       
-      // Skip header row if exists and process each data row
-      const startRow = data[0].some(header => header && header.trim() !== '') ? 1 : 0;
-      
-      for (let i = startRow; i < data.length; i++) {
+      // Process each data row after the header
+      for (let i = 1; i < data.length; i++) {
         const rowArray = data[i];
         if (rowArray.length > 0) {
           // Convert array row to object with indexed values to match CSV row format
           const rowObj = {};
           rowArray.forEach((val, index) => {
-            rowObj[index] = val.toString();
+            rowObj[index] = val !== undefined ? val.toString() : '';
           });
           
           processRow(rowObj, results);
         }
+      }
+      
+      // Ensure we have at least one data row after processing
+      if (results.length <= 1) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Not enough data rows after processing. File must contain a header row and at least one data row.' 
+        });
       }
       
       writeResultsAndRespond();
@@ -134,33 +158,42 @@ app.post('/process', express.json(), (req, res) => {
         return '';
       };
 
+      // Extract values
       const mobile = getColumnValue(row, parseInt(mobileCol)) || '';
-      const billNumber = getColumnValue(row, parseInt(billNumberCol)) || '';
-      const billAmount = getColumnValue(row, parseInt(billAmountCol)) || '';
+      let billNumber = getColumnValue(row, parseInt(billNumberCol)) || '';
+      let billAmount = getColumnValue(row, parseInt(billAmountCol)) || '';
       const orderTime = getColumnValue(row, parseInt(orderTimeCol)) || '';
+      let pointsEarned = pointsEarnedCol ? (getColumnValue(row, parseInt(pointsEarnedCol)) || '') : '';
+      let pointsRedeemed = pointsRedeemedCol ? (getColumnValue(row, parseInt(pointsRedeemedCol)) || '') : '';
       
-      // Extract points values if column numbers were provided
-      let pointsEarned = '';
-      let pointsRedeemed = '';
-      
-      if (pointsEarnedCol) {
-        pointsEarned = getColumnValue(row, parseInt(pointsEarnedCol)) || '';
+      // Validate bill number is numeric, if not empty
+      if (billNumber && isNaN(Number(billNumber))) {
+        billNumber = '';
       }
       
-      if (pointsRedeemedCol) {
-        pointsRedeemed = getColumnValue(row, parseInt(pointsRedeemedCol)) || '';
+      // Validate bill amount is numeric, if not empty
+      if (billAmount && isNaN(Number(billAmount))) {
+        billAmount = '';
       }
       
-      // Include all columns in the correct order with txn_type as "Purchase"
-      results.push([
-        mobile,           // mobile (1)
-        'Purchase',       // txn_type (2)
-        billNumber,       // bill_number (3)
-        billAmount,       // bill_amount (4)
-        orderTime,        // order_time (5)
-        pointsEarned,     // points_earned (6)
-        pointsRedeemed    // points_redeemed (7)
-      ]);
+      // Check if row has any data (at least one field has a value)
+      if (!mobile && !billNumber && !billAmount && !orderTime && !pointsEarned && !pointsRedeemed) {
+        // Skip empty row
+        return;
+      }
+      
+      // Create row data with "purchase" in lowercase, only if row has data
+      const rowData = [
+        mobile,                             // mobile (1)
+        mobile || billNumber || billAmount || orderTime || pointsEarned || pointsRedeemed ? 'purchase' : '', // txn_type (2)
+        billNumber,                         // bill_number (3)
+        billAmount,                         // bill_amount (4)
+        orderTime,                          // order_time (5)
+        pointsEarned,                       // points_earned (6)
+        pointsRedeemed                      // points_redeemed (7)
+      ];
+      
+      results.push(rowData);
     } catch (err) {
       console.error('Error processing row:', err);
     }
