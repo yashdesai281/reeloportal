@@ -126,19 +126,17 @@
                 <h2>Processing Complete</h2>
                 <div id="transactionResults" class="hidden">
                     <p>Your transaction data has been processed successfully.</p>
-                    <a id="downloadTransactionLink" href="#" class="btn primary">Download Processed File</a>
-                    <div id="contactPrompt" class="contact-prompt hidden">
-                        <p>Would you like to create a contacts file using the same file?</p>
-                        <div class="prompt-buttons">
-                            <button id="processContactsPromptBtn" class="btn secondary">Yes, Process Contacts</button>
-                            <button id="skipContactsBtn" class="btn text">No, Skip</button>
-                        </div>
-                    </div>
+                    <p>Transaction records processed: <span id="transactionCount">0</span></p>
+                    <a id="downloadTransactionLink" href="#" class="btn primary">Download Transaction File</a>
+                    <hr style="margin: 20px 0; border-top: 1px solid var(--border-color);">
+                    <p>Contact data has been processed automatically.</p>
+                    <p>Unique contacts extracted: <span id="contactCount">0</span></p>
+                    <a id="downloadContactsLink" href="#" class="btn primary">Download Contacts File</a>
                 </div>
                 <div id="contactResults" class="hidden">
                     <p>Your contact data has been processed successfully.</p>
-                    <p>Total contacts processed: <span id="contactCount">0</span></p>
-                    <a id="downloadContactsLink" href="#" class="btn primary">Download Contacts File</a>
+                    <p>Total contacts processed: <span id="contactCount2">0</span></p>
+                    <a id="downloadContactsLink2" href="#" class="btn primary">Download Contacts File</a>
                 </div>
                 <button id="resetBtn" class="btn secondary">Process Another File</button>
             </div>
@@ -372,13 +370,11 @@
                         transactionResults.classList.remove('hidden');
                         contactResults.classList.add('hidden');
 
-                        // Set download link
+                        // Set download links and counts
                         downloadTransactionLink.href = data.downloadUrl;
-
-                        // Show contact prompt if flagged
-                        if (data.promptContacts) {
-                            document.getElementById('contactPrompt').classList.remove('hidden');
-                        }
+                        downloadContactsLink.href = data.contactsDownloadUrl;
+                        document.getElementById('transactionCount').textContent = data.transactionCount || 0;
+                        document.getElementById('contactCount').textContent = data.contactsCount || 0;
 
                         // Hide mapping sections
                         transactionSection.classList.add('hidden');

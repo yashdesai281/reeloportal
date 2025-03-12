@@ -1,3 +1,4 @@
+
 const express = require('express');
 const multer = require('multer');
 const csv = require('csv-parser');
@@ -50,11 +51,17 @@ app.post('/process', express.json(), (req, res) => {
     fs.mkdirSync(processedDir, { recursive: true });
   }
 
-  const results = [];
-  const processedFilePath = path.join(processedDir, 'processed_file.csv');
-
+  // Prepare results arrays for both transaction and contacts
+  const transactionResults = [];
+  const contactsResults = [];
+  const processedMobiles = new Set(); // For tracking unique mobile numbers
+  
   // Add headers as the first row - with correct column order
-  results.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'order_time', 'points_earned', 'points_redeemed']);
+  transactionResults.push(['mobile', 'txn_type', 'bill_number', 'bill_amount', 'order_time', 'points_earned', 'points_redeemed']);
+  contactsResults.push(['phone_number', 'name', 'email', 'birthday', 'anniversary', 'gender', 'points', 'tags']);
+
+  const transactionFilePath = path.join(processedDir, 'processed_file.csv');
+  const contactsFilePath = path.join(processedDir, 'contacts_file.csv');
 
   try {
     if (fileType === 'csv') {
@@ -66,23 +73,12 @@ app.post('/process', express.json(), (req, res) => {
           csvRows.push(row);
         })
         .on('end', () => {
-          if (csvRows.length === 0) {
-            return res.status(400).json({ success: false, message: 'CSV file is empty' });
-          }
-
-          // Process all rows after the header
+          // Process each row for both transaction and contacts
           csvRows.forEach(row => {
-            processRow(row, results);
+            processRow(row, transactionResults, contactsResults, processedMobiles);
           });
 
-          // Ensure first and second rows are not empty
-          if (results.length <= 1) {
-            return res.status(400).json({ 
-              success: false, 
-              message: 'Not enough data rows after processing. File must contain a header row and at least one data row.' 
-            });
-          }
-
+          // Write both files and respond
           writeResultsAndRespond();
         })
         .on('error', (error) => {
@@ -96,10 +92,6 @@ app.post('/process', express.json(), (req, res) => {
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
-      if (data.length <= 1) {
-        return res.status(400).json({ success: false, message: 'Excel file is empty or has only headers' });
-      }
-
       // Process each data row after the header
       for (let i = 1; i < data.length; i++) {
         const rowArray = data[i];
@@ -110,18 +102,11 @@ app.post('/process', express.json(), (req, res) => {
             rowObj[index] = val !== undefined ? val.toString() : '';
           });
 
-          processRow(rowObj, results);
+          processRow(rowObj, transactionResults, contactsResults, processedMobiles);
         }
       }
 
-      // Ensure we have at least one data row after processing
-      if (results.length <= 1) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Not enough data rows after processing. File must contain a header row and at least one data row.' 
-        });
-      }
-
+      // Write both files and respond
       writeResultsAndRespond();
     } else {
       return res.status(400).json({ success: false, message: 'Unsupported file type' });
@@ -131,8 +116,8 @@ app.post('/process', express.json(), (req, res) => {
     res.status(500).json({ success: false, message: `Error processing file: ${error.message}` });
   }
 
-  // Function to process a row of data
-  function processRow(row, results) {
+  // Function to process a row of data for both transaction and contacts
+  function processRow(row, transactionResults, contactsResults, processedMobiles) {
     try {
       // Get values using column numbers (supporting both array and object format)
       const getColumnValue = (row, colNum) => {
@@ -161,7 +146,7 @@ app.post('/process', express.json(), (req, res) => {
         return '';
       };
 
-      // Extract values
+      // Extract values for transaction
       let mobile = getColumnValue(row, parseInt(mobileCol)) || '';
       let billNumber = getColumnValue(row, parseInt(billNumberCol)) || '';
       let billAmount = getColumnValue(row, parseInt(billAmountCol)) || '';
@@ -171,45 +156,58 @@ app.post('/process', express.json(), (req, res) => {
 
       // Phone number standardization and validation
       mobile = standardizePhoneNumber(mobile);
-      // Check if it's a valid 10-digit phone number starting with 6 or greater
-      if (mobile && (!mobile.match(/^\d{10}$/) || parseInt(mobile.charAt(0)) < 6)) {
-        mobile = ''; // Invalid phone number
+
+      // Process transaction data
+      if (mobile || billNumber || billAmount || orderTime || pointsEarned || pointsRedeemed) {
+        // Validate bill number is numeric, if not empty
+        if (billNumber && isNaN(Number(billNumber))) {
+          billNumber = '';
+        }
+
+        // Validate bill amount is numeric, if not empty
+        if (billAmount && isNaN(Number(billAmount))) {
+          billAmount = '';
+        }
+
+        // Validate order time
+        if (orderTime) {
+          const formattedDate = validateDateTime(orderTime);
+          orderTime = formattedDate; // Will be empty if invalid
+        }
+
+        // Create transaction row data
+        const transactionRowData = [
+          mobile,                             // mobile (1)
+          mobile || billNumber || billAmount || orderTime || pointsEarned || pointsRedeemed ? 'purchase' : '', // txn_type (2)
+          billNumber,                         // bill_number (3)
+          billAmount,                         // bill_amount (4)
+          orderTime,                          // order_time (5)
+          pointsEarned,                       // points_earned (6)
+          pointsRedeemed                      // points_redeemed (7)
+        ];
+
+        transactionResults.push(transactionRowData);
       }
 
-      // Validate bill number is numeric, if not empty
-      if (billNumber && isNaN(Number(billNumber))) {
-        billNumber = '';
+      // Process contact data - only if we have a valid phone number and it's not a duplicate
+      if (mobile && !processedMobiles.has(mobile)) {
+        processedMobiles.add(mobile);
+        
+        // Add this contact to the contacts results
+        // Since we only have the transaction data, we'll just create a minimal contacts entry
+        const contactRowData = [
+          mobile,     // phone_number
+          '',         // name (empty as we don't have this data)
+          '',         // email (empty)
+          '',         // birthday (empty)
+          '',         // anniversary (empty)
+          '',         // gender (empty)
+          pointsEarned || '0',  // points (use points earned if available, otherwise 0)
+          ''          // tags (empty)
+        ];
+        
+        contactsResults.push(contactRowData);
       }
-
-      // Validate bill amount is numeric, if not empty
-      if (billAmount && isNaN(Number(billAmount))) {
-        billAmount = '';
-      }
-
-      // Validate order time
-      if (orderTime) {
-        const formattedDate = validateDateTime(orderTime);
-        orderTime = formattedDate; // Will be empty if invalid
-      }
-
-      // Check if row has any data (at least one field has a value)
-      if (!mobile && !billNumber && !billAmount && !orderTime && !pointsEarned && !pointsRedeemed) {
-        // Skip empty row
-        return;
-      }
-
-      // Create row data with "purchase" in lowercase, only if row has data
-      const rowData = [
-        mobile,                             // mobile (1)
-        mobile || billNumber || billAmount || orderTime || pointsEarned || pointsRedeemed ? 'purchase' : '', // txn_type (2)
-        billNumber,                         // bill_number (3)
-        billAmount,                         // bill_amount (4)
-        orderTime,                          // order_time (5)
-        pointsEarned,                       // points_earned (6)
-        pointsRedeemed                      // points_redeemed (7)
-      ];
-
-      results.push(rowData);
     } catch (err) {
       console.error('Error processing row:', err);
     }
@@ -249,17 +247,45 @@ app.post('/process', express.json(), (req, res) => {
     }
   }
 
+  // Function to standardize phone number
+  function standardizePhoneNumber(phone) {
+    if (!phone) return '';
+
+    // Convert to string if not already
+    phone = phone.toString();
+    
+    // Remove common prefixes like +91, 91, 0091, etc.
+    phone = phone.replace(/^(\+91|91|0091)/, '');
+
+    // Remove all non-numeric characters (spaces, dashes, parentheses, etc.)
+    phone = phone.replace(/\D/g, '');
+
+    // Validate: must be exactly 10 digits and first digit must be 6 or greater
+    if (phone.length === 10 && parseInt(phone.charAt(0)) >= 6) {
+        // Return the clean, valid 10-digit number
+        return phone;
+    }
+
+    return ''; // Return empty if invalid
+  }
+
   // Function to write results and send response
   function writeResultsAndRespond() {
-    const csvData = results.map(row => row.join(',')).join('\n');
-    fs.writeFileSync(processedFilePath, csvData);
+    // Write transaction file
+    const transactionCsvData = transactionResults.map(row => row.join(',')).join('\n');
+    fs.writeFileSync(transactionFilePath, transactionCsvData);
+    
+    // Write contacts file
+    const contactsCsvData = contactsResults.map(row => row.join(',')).join('\n');
+    fs.writeFileSync(contactsFilePath, contactsCsvData);
 
     res.json({ 
       success: true, 
-      downloadUrl: '/download/processed_file.csv', 
-      originalFilePath: inputFilePath, 
-      fileType: fileType,
-      promptContacts: true // Added flag to indicate contacts processing should be prompted
+      downloadUrl: '/download/processed_file.csv',
+      contactsDownloadUrl: '/download/contacts_file.csv',
+      transactionCount: transactionResults.length - 1, // Subtract header row
+      contactsCount: contactsResults.length - 1, // Subtract header row
+      // No need for promptContacts since we're generating both files automatically
     });
   }
 });
@@ -291,23 +317,11 @@ app.post('/process-contacts', express.json(), (req, res) => {
           csvRows.push(row);
         })
         .on('end', () => {
-          if (csvRows.length === 0) {
-            return res.status(400).json({ success: false, message: 'CSV file is empty' });
-          }
-
-          // Process all rows after the header
+          // Process all rows
           const processedMobiles = new Set(); // For duplicate management
           csvRows.forEach(row => {
             processContactRow(row, results, processedMobiles, columnMapping);
           });
-
-          // Ensure first and second rows are not empty
-          if (results.length <= 1) {
-            return res.status(400).json({ 
-              success: false, 
-              message: 'Not enough data rows after processing. File must contain a header row and at least one data row.' 
-            });
-          }
 
           writeResultsAndRespond();
         })
@@ -322,11 +336,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
-      if (data.length <= 1) {
-        return res.status(400).json({ success: false, message: 'Excel file is empty or has only headers' });
-      }
-
-      // Process each data row after the header
+      // Process each data row
       const processedMobiles = new Set(); // For duplicate management
       for (let i = 1; i < data.length; i++) {
         const rowArray = data[i];
@@ -339,14 +349,6 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
           processContactRow(rowObj, results, processedMobiles, columnMapping);
         }
-      }
-
-      // Ensure we have at least one data row after processing
-      if (results.length <= 1) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Not enough data rows after processing for contacts. File must contain a header row and at least one data row.' 
-        });
       }
 
       writeResultsAndRespond();
@@ -441,8 +443,8 @@ app.post('/process-contacts', express.json(), (req, res) => {
       // Phone Number Standardization
       phoneNumber = standardizePhoneNumber(phoneNumber);
 
-      // Skip if no phone number, invalid (not 10 digits or starts with 0-5), or already processed
-      if (!phoneNumber || !phoneNumber.match(/^\d{10}$/) || parseInt(phoneNumber.charAt(0)) < 6 || processedMobiles.has(phoneNumber)) {
+      // Skip if no phone number or already processed
+      if (!phoneNumber || processedMobiles.has(phoneNumber)) {
         return;
       }
 
