@@ -221,12 +221,12 @@ app.post('/process', express.json(), (req, res) => {
     try {
       // Remove any non-date-time characters but keep separators
       const cleanDateTime = dateTimeStr.trim().replace(/[^\d/\-\.: ]/g, '');
-      
+
       // Check if it matches YYYY-MM-DD HH:MM:SS format
       if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(cleanDateTime)) {
         return cleanDateTime;
       }
-      
+
       // Try to parse using Date object
       const date = new Date(dateTimeStr);
       if (!isNaN(date.getTime())) {
@@ -237,10 +237,10 @@ app.post('/process', express.json(), (req, res) => {
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const seconds = String(date.getSeconds()).padStart(2, '0');
-        
+
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       }
-      
+
       // If we can't parse it properly, return empty string
       return '';
     } catch (error) {
@@ -392,12 +392,12 @@ app.post('/process-contacts', express.json(), (req, res) => {
       if (!columnMapping.phoneCol || Object.values(columnMapping).every(val => !val)) {
         const headers = Object.keys(row);
         const headerValues = Array.isArray(row) ? [] : Object.values(row);
-        
+
         // Try to find column indexes based on common names
         for (let i = 0; i < headers.length; i++) {
           const header = (headers[i] || '').toString().toLowerCase();
           const value = headerValues[i] || '';
-          
+
           if (!columnMapping.phoneCol && 
               (header.includes('phone') || header.includes('mobile') || header.includes('contact'))) {
             columnMapping.phoneCol = (i + 1).toString();
@@ -494,7 +494,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     phone = phone.toString();
-    
+
     // Remove common prefixes like +91, 91, 0091, etc.
     phone = phone.replace(/^(\+91|91|0091)/, '');
 
@@ -502,12 +502,12 @@ app.post('/process-contacts', express.json(), (req, res) => {
     phone = phone.replace(/\D/g, '');
 
     // Validate: must be exactly 10 digits and first digit must be 6 or greater
-    if (phone.length !== 10 || parseInt(phone.charAt(0)) < 6) {
-      return ''; // Return empty if invalid
+    if (phone.length === 10 && parseInt(phone.charAt(0)) >= 6) {
+      // Return the clean, valid 10-digit number
+      return phone;
     }
 
-    // Return the clean, valid 10-digit number
-    return phone;
+    return ''; // Return empty if invalid
   }
 
   // Function to clean name
@@ -516,7 +516,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     name = name.toString();
-    
+
     // Remove special characters except spaces, hyphens, and apostrophes
     name = name.replace(/[^\w\s\-']/g, '');
 
@@ -535,7 +535,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     email = email.toString();
-    
+
     // Basic email cleaning - trim and lowercase
     email = email.trim().toLowerCase();
 
@@ -557,7 +557,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     date = date.toString();
-    
+
     // Check if it's a numeric timestamp
     if (!isNaN(date) && date.length >= 8) {
       // Try to parse as timestamp
@@ -613,7 +613,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     gender = gender.toString();
-    
+
     // Remove special characters and extra spaces
     gender = gender.replace(/[^\w\s]/g, '').trim().toLowerCase();
 
@@ -636,7 +636,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     points = points.toString();
-    
+
     // Handle potential float values (e.g., "100.0")
     if (points.includes('.')) {
       points = parseFloat(points).toString();
@@ -660,10 +660,10 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
     // Convert to string if not already
     tags = tags.toString();
-    
+
     // Basic cleaning - remove extra spaces and special characters
     tags = tags.replace(/\s+/g, ' ').trim();
-    
+
     // Keep commas as tag separators, but clean other special characters
     tags = tags.replace(/[^\w\s,\-]/g, '');
 
@@ -707,38 +707,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-// Function to standardize phone number
-function standardizePhoneNumber(phone) {
-    if (!phone) return '';
-
-    // Convert to string if not already
-    phone = phone.toString();
-
-    // Remove common prefixes like +91, 91, 0091, etc.
-    phone = phone.replace(/^(\+91|91|0091)/, '');
-
-    // Remove all non-numeric characters (spaces, dashes, parentheses, etc.)
-    phone = phone.replace(/\D/g, '');
-
-    // Validate: must be exactly 10 digits and first digit must be 6 or greater
-    if (phone.length === 10 && parseInt(phone.charAt(0)) >= 6) {
-        // Return the clean, valid 10-digit number
-        return phone;
-    }
-
-    return ''; // Return empty if invalid
-}
-
-// Process each contact row
-function processContactRow(row, results, processedMobiles, columnMapping) {
-    try {
-        const phoneNumber = standardizePhoneNumber(row[columnMapping.phoneCol]); // Ensure to map to the correct column
-        if (phoneNumber) {
-            // Proceed with other cleaning and adding to results...
-            results.push([phoneNumber, /* other fields... */]);
-        }
-    } catch (err) {
-        console.error('Error processing contact row:', err);
-    }
-}
