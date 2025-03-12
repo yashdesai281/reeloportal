@@ -127,6 +127,13 @@
                 <div id="transactionResults" class="hidden">
                     <p>Your transaction data has been processed successfully.</p>
                     <a id="downloadTransactionLink" href="#" class="btn primary">Download Processed File</a>
+                    <div id="contactPrompt" class="contact-prompt hidden">
+                        <p>Would you like to create a contacts file using the same file?</p>
+                        <div class="prompt-buttons">
+                            <button id="processContactsPromptBtn" class="btn secondary">Yes, Process Contacts</button>
+                            <button id="skipContactsBtn" class="btn text">No, Skip</button>
+                        </div>
+                    </div>
                 </div>
                 <div id="contactResults" class="hidden">
                     <p>Your contact data has been processed successfully.</p>
@@ -240,6 +247,23 @@
             closeError.addEventListener('click', () => {
                 errorModal.classList.add('hidden');
             });
+            
+            // Contact prompt buttons
+            document.getElementById('processContactsPromptBtn').addEventListener('click', () => {
+                // Switch to contacts tab
+                contactsTab.click();
+                // Hide results
+                results.classList.add('hidden');
+                // Auto-fill phone column if possible
+                const mobileCol = document.getElementById('mobileCol').value;
+                if (mobileCol) {
+                    document.getElementById('phoneCol').value = mobileCol;
+                }
+            });
+            
+            document.getElementById('skipContactsBtn').addEventListener('click', () => {
+                document.getElementById('contactPrompt').classList.add('hidden');
+            });
 
             // File selection handler
             function handleFileSelect() {
@@ -350,6 +374,11 @@
 
                         // Set download link
                         downloadTransactionLink.href = data.downloadUrl;
+
+                        // Show contact prompt if flagged
+                        if (data.promptContacts) {
+                            document.getElementById('contactPrompt').classList.remove('hidden');
+                        }
 
                         // Hide mapping sections
                         transactionSection.classList.add('hidden');

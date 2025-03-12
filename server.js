@@ -207,7 +207,13 @@ app.post('/process', express.json(), (req, res) => {
     const csvData = results.map(row => row.join(',')).join('\n');
     fs.writeFileSync(processedFilePath, csvData);
 
-    res.json({ success: true, downloadUrl: '/download/processed_file.csv', originalFilePath: inputFilePath, fileType: fileType });
+    res.json({ 
+      success: true, 
+      downloadUrl: '/download/processed_file.csv', 
+      originalFilePath: inputFilePath, 
+      fileType: fileType,
+      promptContacts: true // Added flag to indicate contacts processing should be prompted
+    });
   }
 });
 
@@ -335,6 +341,44 @@ app.post('/process-contacts', express.json(), (req, res) => {
         return '';
       };
 
+      // Intelligent column mapping - if no columns provided, try to detect them automatically
+      if (!columnMapping.phoneCol || Object.values(columnMapping).every(val => !val)) {
+        const headers = Object.keys(row);
+        const headerValues = Array.isArray(row) ? [] : Object.values(row);
+        
+        // Try to find column indexes based on common names
+        for (let i = 0; i < headers.length; i++) {
+          const header = (headers[i] || '').toString().toLowerCase();
+          const value = headerValues[i] || '';
+          
+          if (!columnMapping.phoneCol && 
+              (header.includes('phone') || header.includes('mobile') || header.includes('contact'))) {
+            columnMapping.phoneCol = (i + 1).toString();
+          } else if (!columnMapping.nameCol && 
+              (header.includes('name') || header.includes('customer'))) {
+            columnMapping.nameCol = (i + 1).toString();
+          } else if (!columnMapping.emailCol && 
+              (header.includes('email') || header.includes('mail'))) {
+            columnMapping.emailCol = (i + 1).toString();
+          } else if (!columnMapping.birthdayCol && 
+              (header.includes('birth') || header.includes('dob'))) {
+            columnMapping.birthdayCol = (i + 1).toString();
+          } else if (!columnMapping.anniversaryCol && 
+              (header.includes('anniversary') || header.includes('anniv'))) {
+            columnMapping.anniversaryCol = (i + 1).toString();
+          } else if (!columnMapping.genderCol && 
+              (header.includes('gender') || header.includes('sex'))) {
+            columnMapping.genderCol = (i + 1).toString();
+          } else if (!columnMapping.pointsCol && 
+              (header.includes('point') || header.includes('score'))) {
+            columnMapping.pointsCol = (i + 1).toString();
+          } else if (!columnMapping.tagsCol && 
+              (header.includes('tag') || header.includes('category') || header.includes('group'))) {
+            columnMapping.tagsCol = (i + 1).toString();
+          }
+        }
+      }
+
       // Extract values using mapping
       let phoneNumber = getColumnValue(row, parseInt(columnMapping.phoneCol || 0)) || '';
       let name = getColumnValue(row, parseInt(columnMapping.nameCol || 0)) || '';
@@ -361,8 +405,8 @@ app.post('/process-contacts', express.json(), (req, res) => {
       // Name Cleaning
       name = cleanName(name);
 
-      // Email cleaning - just basic trimming, as we want to maintain proper format
-      email = email.trim();
+      // Email cleaning - special handling to maintain proper format
+      email = cleanEmail(email);
 
       // Date Formatting - birthday
       birthday = standardizeDate(birthday);
@@ -376,8 +420,8 @@ app.post('/process-contacts', express.json(), (req, res) => {
       // Points Formatting
       points = formatPoints(points);
 
-      // Tags cleaning - just basic trimming
-      tags = tags.trim();
+      // Tags cleaning - basic cleaning while preserving useful information
+      tags = cleanTags(tags);
 
       // Create row data
       const rowData = [
@@ -401,12 +445,16 @@ app.post('/process-contacts', express.json(), (req, res) => {
   function standardizePhoneNumber(phone) {
     if (!phone) return '';
 
-    // Remove country codes like +91 or 91
-    phone = phone.replace(/^(\+91|91)/, '');
+    // Convert to string if not already
+    phone = phone.toString();
+    
+    // Remove common prefixes like +91, 91, 0091, etc.
+    phone = phone.replace(/^(\+91|91|0091)/, '');
 
-    // Remove all non-numeric characters
+    // Remove all non-numeric characters (spaces, dashes, parentheses, etc.)
     phone = phone.replace(/\D/g, '');
 
+    // Ensure consistent format (no specific format required, just clean number)
     return phone;
   }
 
@@ -414,42 +462,87 @@ app.post('/process-contacts', express.json(), (req, res) => {
   function cleanName(name) {
     if (!name) return '';
 
-    // Remove special characters except spaces and hyphens
-    name = name.replace(/[^\w\s-]/g, '');
+    // Convert to string if not already
+    name = name.toString();
+    
+    // Remove special characters except spaces, hyphens, and apostrophes
+    name = name.replace(/[^\w\s\-']/g, '');
 
-    // Trim extra spaces
+    // Trim extra spaces, including multiple spaces between words
     name = name.replace(/\s+/g, ' ').trim();
 
-    // Capitalize first letter of each word
+    // Capitalize the first letter of each word
     name = name.replace(/\b\w/g, char => char.toUpperCase());
 
     return name;
+  }
+
+  // Function to clean email
+  function cleanEmail(email) {
+    if (!email) return '';
+
+    // Convert to string if not already
+    email = email.toString();
+    
+    // Basic email cleaning - trim and lowercase
+    email = email.trim().toLowerCase();
+
+    // Preserve valid email format, only remove extra spaces
+    email = email.replace(/\s+/g, '');
+
+    // Validate basic email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      // If not valid, return empty string
+      return '';
+    }
+
+    return email;
   }
 
   // Function to standardize date
   function standardizeDate(date) {
     if (!date) return '';
 
-    // Try to parse date from various formats
-    let parsedDate;
+    // Convert to string if not already
+    date = date.toString();
+    
+    // Check if it's a numeric timestamp
+    if (!isNaN(date) && date.length >= 8) {
+      // Try to parse as timestamp
+      const timestamp = parseInt(date);
+      const parsedDate = new Date(timestamp);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      }
+    }
 
-    // Remove any non-date characters
+    // Remove any non-date characters but keep separators
     const cleanDate = date.replace(/[^\d/\-\.]/g, '');
 
-    // Try DD/MM/YYYY or DD-MM-YYYY
+    // Try different date formats
+    let parsedDate;
+
+    // Try DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
     if (/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/.test(cleanDate)) {
       const parts = cleanDate.split(/[\/\-\.]/);
-      parsedDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      parsedDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
     } 
-    // Try MM/DD/YYYY or MM-DD-YYYY
+    // Try MM/DD/YYYY or MM-DD-YYYY or MM.DD.YYYY
     else if (/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/.test(cleanDate)) {
       const parts = cleanDate.split(/[\/\-\.]/);
-      parsedDate = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+      parsedDate = new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
     }
-    // Try YYYY/MM/DD or YYYY-MM-DD
+    // Try YYYY/MM/DD or YYYY-MM-DD or YYYY.MM.DD
     else if (/^\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}$/.test(cleanDate)) {
       const parts = cleanDate.split(/[\/\-\.]/);
-      parsedDate = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+      parsedDate = new Date(`${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`);
+    }
+    // Try YYYYMMDD format (without separators)
+    else if (/^\d{8}$/.test(cleanDate)) {
+      const year = cleanDate.substring(0, 4);
+      const month = cleanDate.substring(4, 6);
+      const day = cleanDate.substring(6, 8);
+      parsedDate = new Date(`${year}-${month}-${day}`);
     }
 
     // Check if date is valid
@@ -458,6 +551,7 @@ app.post('/process-contacts', express.json(), (req, res) => {
       return parsedDate.toISOString().split('T')[0];
     }
 
+    // Flag invalid date by returning empty string
     return '';
   }
 
@@ -465,15 +559,18 @@ app.post('/process-contacts', express.json(), (req, res) => {
   function cleanGender(gender) {
     if (!gender) return '';
 
+    // Convert to string if not already
+    gender = gender.toString();
+    
     // Remove special characters and extra spaces
     gender = gender.replace(/[^\w\s]/g, '').trim().toLowerCase();
 
     // Standardize common gender values
-    if (['m', 'male', 'man', 'boy'].includes(gender)) {
+    if (['m', 'male', 'man', 'boy', 'gent', 'gentleman', 'sir'].includes(gender)) {
       return 'Male';
-    } else if (['f', 'female', 'woman', 'girl'].includes(gender)) {
+    } else if (['f', 'female', 'woman', 'girl', 'lady', 'madam'].includes(gender)) {
       return 'Female';
-    } else if (['o', 'other', 'non-binary', 'nonbinary'].includes(gender)) {
+    } else if (['o', 'other', 'non-binary', 'nonbinary', 'nb', 'neutral', 'n'].includes(gender)) {
       return 'Other';
     }
 
@@ -483,17 +580,42 @@ app.post('/process-contacts', express.json(), (req, res) => {
 
   // Function to format points
   function formatPoints(points) {
-    if (!points) return '';
+    if (!points) return '0';
 
-    // Remove non-numeric characters
-    points = points.replace(/\D/g, '');
+    // Convert to string if not already
+    points = points.toString();
+    
+    // Handle potential float values (e.g., "100.0")
+    if (points.includes('.')) {
+      points = parseFloat(points).toString();
+    }
+
+    // Remove all non-numeric characters
+    points = points.replace(/[^\d-]/g, '');
 
     // Convert to integer if possible
     if (points.length > 0) {
       return parseInt(points, 10).toString();
     }
 
-    return '';
+    // Default to 0 if invalid or empty
+    return '0';
+  }
+
+  // Function to clean tags
+  function cleanTags(tags) {
+    if (!tags) return '';
+
+    // Convert to string if not already
+    tags = tags.toString();
+    
+    // Basic cleaning - remove extra spaces and special characters
+    tags = tags.replace(/\s+/g, ' ').trim();
+    
+    // Keep commas as tag separators, but clean other special characters
+    tags = tags.replace(/[^\w\s,\-]/g, '');
+
+    return tags;
   }
 
   // Function to write results and send response

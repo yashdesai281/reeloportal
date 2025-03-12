@@ -246,6 +246,26 @@ header {
     box-shadow: var(--box-shadow);
 }
 
+/* Contact prompt */
+.contact-prompt {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.prompt-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+    .prompt-buttons {
+        flex-direction: column;
+    }
+}
+
 .results-box h2 {
     color: var(--success-color);
     margin-bottom: 1rem;
