@@ -162,12 +162,19 @@ app.post('/process', express.json(), (req, res) => {
       };
 
       // Extract values
-      const mobile = getColumnValue(row, parseInt(mobileCol)) || '';
+      let mobile = getColumnValue(row, parseInt(mobileCol)) || '';
       let billNumber = getColumnValue(row, parseInt(billNumberCol)) || '';
       let billAmount = getColumnValue(row, parseInt(billAmountCol)) || '';
-      const orderTime = getColumnValue(row, parseInt(orderTimeCol)) || '';
+      let orderTime = getColumnValue(row, parseInt(orderTimeCol)) || '';
       let pointsEarned = pointsEarnedCol ? (getColumnValue(row, parseInt(pointsEarnedCol)) || '') : '';
       let pointsRedeemed = pointsRedeemedCol ? (getColumnValue(row, parseInt(pointsRedeemedCol)) || '') : '';
+
+      // Phone number standardization and validation
+      mobile = standardizePhoneNumber(mobile);
+      // Check if it's a valid 10-digit phone number starting with 6 or greater
+      if (mobile && (!mobile.match(/^\d{10}$/) || parseInt(mobile.charAt(0)) < 6)) {
+        mobile = ''; // Invalid phone number
+      }
 
       // Validate bill number is numeric, if not empty
       if (billNumber && isNaN(Number(billNumber))) {
@@ -177,6 +184,12 @@ app.post('/process', express.json(), (req, res) => {
       // Validate bill amount is numeric, if not empty
       if (billAmount && isNaN(Number(billAmount))) {
         billAmount = '';
+      }
+
+      // Validate order time
+      if (orderTime) {
+        const formattedDate = validateDateTime(orderTime);
+        orderTime = formattedDate; // Will be empty if invalid
       }
 
       // Check if row has any data (at least one field has a value)
@@ -199,6 +212,40 @@ app.post('/process', express.json(), (req, res) => {
       results.push(rowData);
     } catch (err) {
       console.error('Error processing row:', err);
+    }
+  }
+
+  // Function to validate and format date-time
+  function validateDateTime(dateTimeStr) {
+    // Try different date-time formats and standardize to YYYY-MM-DD HH:MM:SS
+    try {
+      // Remove any non-date-time characters but keep separators
+      const cleanDateTime = dateTimeStr.trim().replace(/[^\d/\-\.: ]/g, '');
+      
+      // Check if it matches YYYY-MM-DD HH:MM:SS format
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(cleanDateTime)) {
+        return cleanDateTime;
+      }
+      
+      // Try to parse using Date object
+      const date = new Date(dateTimeStr);
+      if (!isNaN(date.getTime())) {
+        // Format as YYYY-MM-DD HH:MM:SS
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      }
+      
+      // If we can't parse it properly, return empty string
+      return '';
+    } catch (error) {
+      console.error('Error parsing date-time:', error);
+      return '';
     }
   }
 
@@ -394,8 +441,8 @@ app.post('/process-contacts', express.json(), (req, res) => {
       // Phone Number Standardization
       phoneNumber = standardizePhoneNumber(phoneNumber);
 
-      // Skip if no phone number or already processed (duplicate management)
-      if (!phoneNumber || processedMobiles.has(phoneNumber)) {
+      // Skip if no phone number, invalid (not 10 digits or starts with 0-5), or already processed
+      if (!phoneNumber || !phoneNumber.match(/^\d{10}$/) || parseInt(phoneNumber.charAt(0)) < 6 || processedMobiles.has(phoneNumber)) {
         return;
       }
 
@@ -454,7 +501,12 @@ app.post('/process-contacts', express.json(), (req, res) => {
     // Remove all non-numeric characters (spaces, dashes, parentheses, etc.)
     phone = phone.replace(/\D/g, '');
 
-    // Ensure consistent format (no specific format required, just clean number)
+    // Validate: must be exactly 10 digits and first digit must be 6 or greater
+    if (phone.length !== 10 || parseInt(phone.charAt(0)) < 6) {
+      return ''; // Return empty if invalid
+    }
+
+    // Return the clean, valid 10-digit number
     return phone;
   }
 
