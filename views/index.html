@@ -1,198 +1,464 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transaction File Import</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV/Excel File Processor</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="container mt-5">
-    <div class="card shadow">
-      <div class="card-header bg-primary text-white">
-        <h1 class="card-title text-center">Transaction File Import</h1>
-      </div>
-      <div class="card-body">
-        <form id="uploadForm" enctype="multipart/form-data">
-          <div class="mb-3">
-            <label for="file" class="form-label">Upload CSV or Excel File</label>
-            <input type="file" name="file" id="file" class="form-control" accept=".csv,.xlsx,.xls" required>
-          </div>
-          <button type="submit" class="btn btn-success w-100">Upload File</button>
-        </form>
+    <div class="container">
+        <header>
+            <h1>File Processor</h1>
+            <p>Upload your CSV or Excel file to process transaction data and contacts</p>
+        </header>
 
-        <div id="processSection" class="mt-4 d-none">
-          <div class="alert alert-success">
-            <h4>File uploaded successfully!</h4>
-            <p>Now let's map the columns from your CSV file.</p>
-            <p><strong>Note:</strong> The processed file will have the following columns in this order:</p>
-            <ol>
-              <li>mobile</li>
-              <li>txn_type (will be set to "Purchase")</li>
-              <li>bill_number</li>
-              <li>bill_amount</li>
-              <li>order_time</li>
-              <li>points_earned</li>
-              <li>points_redeemed</li>
-            </ol>
-          </div>
-          
-          <form id="mappingForm">
-            <div class="mb-3">
-              <label for="mobileCol" class="form-label">Enter the column number containing 'mobile'</label>
-              <input type="number" id="mobileCol" class="form-control" min="1" required>
+        <div class="upload-section">
+            <h2>Upload File</h2>
+            <div class="upload-box" id="dropzone">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls" hidden>
+                    <div class="upload-content">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDVWMTVNMTIgNUw4LjUgOC41TTEyIDVMMTUuNSA4LjVNNyAxOS4wMDRDNC4yMzg2IDE5LjAwNCAyIDEzLjk5NzkgMiAxMi4wMDRDMiAxMC4wMTAxIDQuMjM4NiA3LjAwMzg5IDcgNy4wMDM4OUgxME0xNyA3LjAwMzg5SDIwQzIyLjc2MTQgNy4wMDM4OSAyNS4wMDE2IDEwLjAxMDEgMjUuMDAxNiAxMi4wMDRDMjUuMDAxNiAxMy45OTc5IDIyLjc2MTQgMTkuMDA0IDIwIDE5LjAwNEgxNy4wNTEyQzE0LjI5NDcgMTkuMDA0IDE3IDBcIiBzdHJva2U9IiM0ZDRkNGQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48L3BhdGg+Cjwvc3ZnPg==" alt="Upload">
+                        <div class="upload-text">
+                            <span>Drag and drop your file here</span>
+                            <span>or</span>
+                            <button type="button" id="browseBtn" class="btn primary">Browse Files</button>
+                        </div>
+                    </div>
+                </form>
+                <div id="fileInfo" class="file-info hidden">
+                    <div class="file-details">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEzIDJIOUM4LjQ2OTU3IDIgNy45NjA4NiAyIDcuNTMwMzMgMi4wNTgxNUM1LjkxNjk2IDIuMjc5MDkgNC43MDc3MyAzLjE4MDM2IDQuMTM4NTggNC43MDU3QzQgNS4wODE4NyA0IDUuNTI1OCBcIiBzdHJva2U9IiM0ZDRkNGQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48L3BhdGg+Cjwvc3ZnPg==" alt="File" id="fileIcon">
+                        <div>
+                            <span id="fileName">filename.csv</span>
+                            <span id="fileSize">0 KB</span>
+                        </div>
+                    </div>
+                    <button id="removeFile" class="btn text">Remove</button>
+                </div>
             </div>
-            
-            <div class="mb-3">
-              <label for="billNumberCol" class="form-label">Enter the column number containing 'bill_number'</label>
-              <input type="number" id="billNumberCol" class="form-control" min="1" required>
-            </div>
-            
-            <div class="mb-3">
-              <label for="billAmountCol" class="form-label">Enter the column number containing 'bill_amount'</label>
-              <input type="number" id="billAmountCol" class="form-control" min="1" required>
-            </div>
-            
-            <div class="mb-3">
-              <label for="orderTimeCol" class="form-label">Enter the column number containing 'order_time'</label>
-              <input type="number" id="orderTimeCol" class="form-control" min="1" required>
-            </div>
-            
-            <div class="mb-3">
-              <label for="pointsEarnedCol" class="form-label">Enter the column number containing 'points_earned' (optional)</label>
-              <input type="number" id="pointsEarnedCol" class="form-control" min="1">
-            </div>
-            
-            <div class="mb-3">
-              <label for="pointsRedeemedCol" class="form-label">Enter the column number containing 'points_redeemed' (optional)</label>
-              <input type="number" id="pointsRedeemedCol" class="form-control" min="1">
-            </div>
-            
-            <button type="submit" class="btn btn-primary w-100">Process File</button>
-          </form>
         </div>
 
-        <div id="resultSection" class="mt-4 d-none">
-          <div class="alert alert-success">
-            <h4>Processing complete!</h4>
-            <p>Your file has been processed successfully.</p>
-          </div>
-          <a id="downloadLink" class="btn btn-primary w-100">Download Processed File</a>
+        <div class="tabs">
+            <button class="tab-btn active" id="transactionTab">Transactions</button>
+            <button class="tab-btn" id="contactsTab">Contacts</button>
         </div>
 
-        <div id="loadingSection" class="mt-4 d-none text-center">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="mt-2">Processing your file, please wait...</p>
+        <div id="transactionSection" class="tab-section">
+            <h2>Transaction Data Mapping</h2>
+            <p>Select the columns corresponding to each data type:</p>
+
+            <div class="mapping-grid">
+                <div class="mapping-item">
+                    <label for="mobileCol">Mobile Number*</label>
+                    <input type="number" id="mobileCol" min="1" placeholder="Column #" required>
+                </div>
+                <div class="mapping-item">
+                    <label for="billNumberCol">Bill Number*</label>
+                    <input type="number" id="billNumberCol" min="1" placeholder="Column #" required>
+                </div>
+                <div class="mapping-item">
+                    <label for="billAmountCol">Bill Amount*</label>
+                    <input type="number" id="billAmountCol" min="1" placeholder="Column #" required>
+                </div>
+                <div class="mapping-item">
+                    <label for="orderTimeCol">Order Time*</label>
+                    <input type="number" id="orderTimeCol" min="1" placeholder="Column #" required>
+                </div>
+                <div class="mapping-item">
+                    <label for="pointsEarnedCol">Points Earned</label>
+                    <input type="number" id="pointsEarnedCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="pointsRedeemedCol">Points Redeemed</label>
+                    <input type="number" id="pointsRedeemedCol" min="1" placeholder="Column # (optional)">
+                </div>
+            </div>
+
+            <button id="processTransactionBtn" class="btn primary" disabled>Process Transactions</button>
         </div>
-      </div>
+
+        <div id="contactsSection" class="tab-section hidden">
+            <h2>Contact Data Mapping</h2>
+            <p>Select the columns corresponding to each contact field:</p>
+
+            <div class="mapping-grid">
+                <div class="mapping-item">
+                    <label for="phoneCol">Phone Number*</label>
+                    <input type="number" id="phoneCol" min="1" placeholder="Column #" required>
+                </div>
+                <div class="mapping-item">
+                    <label for="nameCol">Name</label>
+                    <input type="number" id="nameCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="emailCol">Email</label>
+                    <input type="number" id="emailCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="birthdayCol">Birthday</label>
+                    <input type="number" id="birthdayCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="anniversaryCol">Anniversary</label>
+                    <input type="number" id="anniversaryCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="genderCol">Gender</label>
+                    <input type="number" id="genderCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="pointsCol">Points</label>
+                    <input type="number" id="pointsCol" min="1" placeholder="Column # (optional)">
+                </div>
+                <div class="mapping-item">
+                    <label for="tagsCol">Tags</label>
+                    <input type="number" id="tagsCol" min="1" placeholder="Column # (optional)">
+                </div>
+            </div>
+
+            <button id="processContactsBtn" class="btn primary" disabled>Process Contacts</button>
+        </div>
+
+        <div id="results" class="results-section hidden">
+            <div class="results-box">
+                <h2>Processing Complete</h2>
+                <div id="transactionResults" class="hidden">
+                    <p>Your transaction data has been processed successfully.</p>
+                    <a id="downloadTransactionLink" href="#" class="btn primary">Download Processed File</a>
+                </div>
+                <div id="contactResults" class="hidden">
+                    <p>Your contact data has been processed successfully.</p>
+                    <p>Total contacts processed: <span id="contactCount">0</span></p>
+                    <a id="downloadContactsLink" href="#" class="btn primary">Download Contacts File</a>
+                </div>
+                <button id="resetBtn" class="btn secondary">Process Another File</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Processing your file...</p>
+        </div>
+
+        <div id="errorModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Error</h3>
+                <p id="errorMessage"></p>
+                <button id="closeError" class="btn primary">Close</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    let uploadedFilePath = '';
-    let uploadedFileType = '';
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let filePath = null;
+            let fileType = null;
+            let originalName = null;
+            let activeTab = 'transaction';
 
-    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const fileInput = document.getElementById('file');
-      if (!fileInput.files[0]) {
-        alert("Please select a CSV file");
-        return;
-      }
+            // Elements
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+            const browseBtn = document.getElementById('browseBtn');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const removeFileBtn = document.getElementById('removeFile');
+            const processTransactionBtn = document.getElementById('processTransactionBtn');
+            const processContactsBtn = document.getElementById('processContactsBtn');
+            const transactionTab = document.getElementById('transactionTab');
+            const contactsTab = document.getElementById('contactsTab');
+            const transactionSection = document.getElementById('transactionSection');
+            const contactsSection = document.getElementById('contactsSection');
+            const results = document.getElementById('results');
+            const transactionResults = document.getElementById('transactionResults');
+            const contactResults = document.getElementById('contactResults');
+            const downloadTransactionLink = document.getElementById('downloadTransactionLink');
+            const downloadContactsLink = document.getElementById('downloadContactsLink');
+            const contactCount = document.getElementById('contactCount');
+            const resetBtn = document.getElementById('resetBtn');
+            const loading = document.getElementById('loading');
+            const errorModal = document.getElementById('errorModal');
+            const errorMessage = document.getElementById('errorMessage');
+            const closeError = document.getElementById('closeError');
 
-      try {
-        // Show loading indicator
-        document.getElementById('loadingSection').classList.remove('d-none');
-        
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+            // File Upload Handlers
+            browseBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
 
-        // Step 1: Upload file
-        const uploadResponse = await fetch('/upload', { 
-          method: 'POST', 
-          body: formData 
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Drag and drop
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dragover');
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect();
+                }
+            });
+
+            // Remove file
+            removeFileBtn.addEventListener('click', () => {
+                resetFileUpload();
+            });
+
+            // Tab switching
+            transactionTab.addEventListener('click', () => {
+                activeTab = 'transaction';
+                transactionTab.classList.add('active');
+                contactsTab.classList.remove('active');
+                transactionSection.classList.remove('hidden');
+                contactsSection.classList.add('hidden');
+            });
+
+            contactsTab.addEventListener('click', () => {
+                activeTab = 'contacts';
+                contactsTab.classList.add('active');
+                transactionTab.classList.remove('active');
+                contactsSection.classList.remove('hidden');
+                transactionSection.classList.add('hidden');
+            });
+
+            // Process buttons
+            processTransactionBtn.addEventListener('click', processTransactions);
+            processContactsBtn.addEventListener('click', processContacts);
+            resetBtn.addEventListener('click', resetAll);
+            closeError.addEventListener('click', () => {
+                errorModal.classList.add('hidden');
+            });
+
+            // File selection handler
+            function handleFileSelect() {
+                const file = fileInput.files[0];
+
+                if (file) {
+                    // Check file type
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (ext !== 'csv' && ext !== 'xlsx' && ext !== 'xls') {
+                        showError('Please upload a CSV or Excel file.');
+                        return;
+                    }
+
+                    // Update UI
+                    fileInfo.classList.remove('hidden');
+                    fileName.textContent = file.name;
+
+                    // Format file size
+                    const sizeKB = file.size / 1024;
+                    if (sizeKB < 1024) {
+                        fileSize.textContent = Math.round(sizeKB) + ' KB';
+                    } else {
+                        fileSize.textContent = (sizeKB / 1024).toFixed(2) + ' MB';
+                    }
+
+                    // Upload file
+                    uploadFile(file);
+                }
+            }
+
+            // Upload file to server
+            function uploadFile(file) {
+                loading.classList.remove('hidden');
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loading.classList.add('hidden');
+
+                    if (data.success) {
+                        filePath = data.filePath;
+                        fileType = data.fileType;
+                        originalName = data.originalName;
+
+                        // Enable process buttons
+                        processTransactionBtn.disabled = false;
+                        processContactsBtn.disabled = false;
+                    } else {
+                        showError(data.message || 'Failed to upload file.');
+                        resetFileUpload();
+                    }
+                })
+                .catch(error => {
+                    loading.classList.add('hidden');
+                    showError('Error uploading file: ' + error.message);
+                    resetFileUpload();
+                });
+            }
+
+            // Process transactions
+            function processTransactions() {
+                // Validate required fields
+                const mobileCol = document.getElementById('mobileCol').value;
+                const billNumberCol = document.getElementById('billNumberCol').value;
+                const billAmountCol = document.getElementById('billAmountCol').value;
+                const orderTimeCol = document.getElementById('orderTimeCol').value;
+                const pointsEarnedCol = document.getElementById('pointsEarnedCol').value;
+                const pointsRedeemedCol = document.getElementById('pointsRedeemedCol').value;
+
+                if (!mobileCol || !billNumberCol || !billAmountCol || !orderTimeCol) {
+                    showError('Please fill in all required fields.');
+                    return;
+                }
+
+                loading.classList.remove('hidden');
+
+                fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mobileCol,
+                        billNumberCol,
+                        billAmountCol,
+                        orderTimeCol,
+                        pointsEarnedCol,
+                        pointsRedeemedCol,
+                        filePath,
+                        fileType
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loading.classList.add('hidden');
+
+                    if (data.success) {
+                        // Show results
+                        results.classList.remove('hidden');
+                        transactionResults.classList.remove('hidden');
+                        contactResults.classList.add('hidden');
+
+                        // Set download link
+                        downloadTransactionLink.href = data.downloadUrl;
+
+                        // Hide mapping sections
+                        transactionSection.classList.add('hidden');
+                        contactsSection.classList.add('hidden');
+                    } else {
+                        showError(data.message || 'Failed to process file.');
+                    }
+                })
+                .catch(error => {
+                    loading.classList.add('hidden');
+                    showError('Error processing file: ' + error.message);
+                });
+            }
+
+            // Process contacts
+            function processContacts() {
+                // Validate required fields
+                const phoneCol = document.getElementById('phoneCol').value;
+
+                if (!phoneCol) {
+                    showError('Phone number column is required.');
+                    return;
+                }
+
+                loading.classList.remove('hidden');
+
+                const columnMapping = {
+                    phoneCol: phoneCol,
+                    nameCol: document.getElementById('nameCol').value,
+                    emailCol: document.getElementById('emailCol').value,
+                    birthdayCol: document.getElementById('birthdayCol').value,
+                    anniversaryCol: document.getElementById('anniversaryCol').value,
+                    genderCol: document.getElementById('genderCol').value,
+                    pointsCol: document.getElementById('pointsCol').value,
+                    tagsCol: document.getElementById('tagsCol').value
+                };
+
+                fetch('/process-contacts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filePath,
+                        fileType,
+                        columnMapping
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loading.classList.add('hidden');
+
+                    if (data.success) {
+                        // Show results
+                        results.classList.remove('hidden');
+                        contactResults.classList.remove('hidden');
+                        transactionResults.classList.add('hidden');
+
+                        // Set download link and contact count
+                        downloadContactsLink.href = data.downloadUrl;
+                        contactCount.textContent = data.totalContacts;
+
+                        // Hide mapping sections
+                        transactionSection.classList.add('hidden');
+                        contactsSection.classList.add('hidden');
+                    } else {
+                        showError(data.message || 'Failed to process contacts.');
+                    }
+                })
+                .catch(error => {
+                    loading.classList.add('hidden');
+                    showError('Error processing contacts: ' + error.message);
+                });
+            }
+
+            // Reset file upload
+            function resetFileUpload() {
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                filePath = null;
+                fileType = null;
+                processTransactionBtn.disabled = true;
+                processContactsBtn.disabled = true;
+            }
+
+            // Reset everything
+            function resetAll() {
+                resetFileUpload();
+                results.classList.add('hidden');
+
+                // Show tabs and mapping sections
+                if (activeTab === 'transaction') {
+                    transactionSection.classList.remove('hidden');
+                } else {
+                    contactsSection.classList.remove('hidden');
+                }
+
+                // Clear inputs
+                document.querySelectorAll('input[type="number"]').forEach(input => {
+                    input.value = '';
+                });
+            }
+
+            // Show error
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorModal.classList.remove('hidden');
+            }
         });
-        
-        const uploadResult = await uploadResponse.json();
-
-        if (uploadResult.success) {
-          uploadedFilePath = uploadResult.filePath;
-          uploadedFileType = uploadResult.fileType;
-          
-          // Hide upload form and show mapping form
-          document.getElementById('uploadForm').classList.add('d-none');
-          document.getElementById('processSection').classList.remove('d-none');
-          document.getElementById('loadingSection').classList.add('d-none');
-        } else {
-          alert("Error uploading file: " + (uploadResult.message || "Unknown error"));
-          document.getElementById('loadingSection').classList.add('d-none');
-        }
-      } catch (error) {
-        alert("An error occurred: " + error.message);
-        document.getElementById('loadingSection').classList.add('d-none');
-      }
-    });
-
-    document.getElementById('mappingForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const mobileCol = document.getElementById('mobileCol').value;
-      const billNumberCol = document.getElementById('billNumberCol').value;
-      const billAmountCol = document.getElementById('billAmountCol').value;
-      const orderTimeCol = document.getElementById('orderTimeCol').value;
-      const pointsEarnedCol = document.getElementById('pointsEarnedCol').value;
-      const pointsRedeemedCol = document.getElementById('pointsRedeemedCol').value;
-      
-      // Validate required inputs
-      if (!mobileCol || !billNumberCol || !billAmountCol || !orderTimeCol) {
-        alert("Please fill in all required column numbers");
-        return;
-      }
-
-      try {
-        // Show loading indicator
-        document.getElementById('loadingSection').classList.remove('d-none');
-        document.getElementById('processSection').classList.add('d-none');
-        
-        // Send mapping data to backend
-        const processResponse = await fetch('/process', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            mobileCol, 
-            billNumberCol, 
-            billAmountCol, 
-            orderTimeCol, 
-            pointsEarnedCol, 
-            pointsRedeemedCol,
-            filePath: uploadedFilePath,
-            fileType: uploadedFileType
-          })
-        });
-
-        const processResult = await processResponse.json();
-        
-        // Hide loading indicator
-        document.getElementById('loadingSection').classList.add('d-none');
-        
-        if (processResult.success) {
-          // Show download section
-          document.getElementById('resultSection').classList.remove('d-none');
-          document.getElementById('downloadLink').href = processResult.downloadUrl;
-          document.getElementById('downloadLink').textContent = "Download Processed File";
-        } else {
-          alert("Error processing file: " + (processResult.message || "Unknown error"));
-        }
-      } catch (error) {
-        document.getElementById('loadingSection').classList.add('d-none');
-        alert("An error occurred: " + error.message);
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
