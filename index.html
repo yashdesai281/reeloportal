@@ -7,9 +7,6 @@
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <input type="file" id="fileInput">
-<button onclick="uploadFile()">Upload</button>
-
     <div class="container">
         <header>
             <h1>File Processor</h1>
@@ -247,7 +244,13 @@
             closeError.addEventListener('click', () => {
                 errorModal.classList.add('hidden');
             });
-            
+             // Contact prompt buttons
+            document.getElementById('processContactsPromptBtn').addEventListener('click', () => {
+                // Switch to contacts tab
+                contactsTab.click();
+                // Hide results
+                results.classList.add('hidden');
+                // Auto-fill phone column if possible
                 const mobileCol = document.getElementById('mobileCol').value;
                 if (mobileCol) {
                     document.getElementById('phoneCol').value = mobileCol;
