@@ -156,7 +156,14 @@
         </div>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+       document.addEventListener('DOMContentLoaded', () => {
+    const uploadBtn = document.getElementById('upload-btn');
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', uploadFile);
+    } else {
+        console.error("Upload button not found");
+    }
+});
             let filePath = null;
             let fileType = null;
             let originalName = null;
