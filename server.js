@@ -11,7 +11,6 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabase = supabase.createClient( "https://knmzowldzassgfghwqxc.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtubXpvd2xkemFzc2dmZ2h3cXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4NDcwMDAsImV4cCI6MjA1NzQyMzAwMH0.vaPgLdHFqfTSyH0zHDTZ_0r31ZVoQGRVG8coH_aM_FQ");
 
-
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
