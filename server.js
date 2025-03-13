@@ -6,6 +6,11 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx'); // Added for Excel support
 const bodyParser = require('body-parser');
+const SUPABASE_URL = "https://knmzowldzassgfghwqxc.supabase.co";  // Replace with your Supabase URL
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtubXpvd2xkemFzc2dmZ2h3cXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4NDcwMDAsImV4cCI6MjA1NzQyMzAwMH0.vaPgLdHFqfTSyH0zHDTZ_0r31ZVoQGRVG8coH_aM_FQ";  // Replace with your Supabase Anon Key
+
+const supabase = supabase.createClient( "https://knmzowldzassgfghwqxc.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtubXpvd2xkemFzc2dmZ2h3cXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4NDcwMDAsImV4cCI6MjA1NzQyMzAwMH0.vaPgLdHFqfTSyH0zHDTZ_0r31ZVoQGRVG8coH_aM_FQ");
+
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
