@@ -5,13 +5,16 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx'); // Added for Excel support
-
+const bodyParser = require('body-parser');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-// Serve static files (CSS)
-app.use(express.static('public'));
+// Serve static files from the current directory
+app.use(express.static(path.join(__dirname, '/')));
+
+// Parse JSON request bodies
+app.use(bodyParser.json());
 
 // Serve the HTML file
 app.get('/', (req, res) => {
