@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CSV/Excel File Processor</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <div class="container">
@@ -245,13 +245,6 @@
                 errorModal.classList.add('hidden');
             });
             
-            // Contact prompt buttons
-            document.getElementById('processContactsPromptBtn').addEventListener('click', () => {
-                // Switch to contacts tab
-                contactsTab.click();
-                // Hide results
-                results.classList.add('hidden');
-                // Auto-fill phone column if possible
                 const mobileCol = document.getElementById('mobileCol').value;
                 if (mobileCol) {
                     document.getElementById('phoneCol').value = mobileCol;
@@ -484,6 +477,6 @@
             }
         });
     </script>
-  <script src="script.js"></script>
+  <script src="./script.js"></script>
 </body>
 </html>
